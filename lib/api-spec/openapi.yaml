@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: FitTrack Fitness & Nutrition API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: workouts
+    description: Workout operations
+  - name: meals
+    description: Meal and nutrition operations
+  - name: blog
+    description: Blog article operations
+  - name: profile
+    description: User profile operations
+  - name: progress
+    description: Progress tracking operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,197 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /workouts:
+    get:
+      operationId: getWorkouts
+      tags: [workouts]
+      summary: Get all workouts
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of workouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workout"
+
+  /workouts/{id}/complete:
+    post:
+      operationId: completeWorkout
+      tags: [workouts]
+      summary: Mark workout as completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workout marked as completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutCompletion"
+
+  /meals:
+    get:
+      operationId: getMeals
+      tags: [meals]
+      summary: Get all meals/recipes
+      parameters:
+        - name: goal
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of meals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meal"
+
+  /meals/diary:
+    get:
+      operationId: getFoodDiary
+      tags: [meals]
+      summary: Get food diary entries
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Food diary entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DiaryEntry"
+    post:
+      operationId: addFoodDiaryEntry
+      tags: [meals]
+      summary: Add food diary entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewDiaryEntry"
+      responses:
+        "201":
+          description: Diary entry added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiaryEntry"
+
+  /blog:
+    get:
+      operationId: getBlogArticles
+      tags: [blog]
+      summary: Get all blog articles
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Article"
+
+  /blog/{id}/favorite:
+    post:
+      operationId: toggleArticleFavorite
+      tags: [blog]
+      summary: Toggle article favorite
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Favorite toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteResult"
+
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+    put:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  /progress:
+    get:
+      operationId: getProgress
+      tags: [progress]
+      summary: Get user progress stats
+      responses:
+        "200":
+          description: Progress stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Progress"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +233,303 @@ components:
       required:
         - status
 
+    Workout:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [strength, cardio, yoga, home]
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        duration:
+          type: integer
+          description: Duration in minutes
+        calories:
+          type: integer
+          description: Estimated calories burned
+        imageUrl:
+          type: string
+        steps:
+          type: array
+          items:
+            type: string
+        completed:
+          type: boolean
+      required:
+        - id
+        - title
+        - description
+        - category
+        - difficulty
+        - duration
+        - calories
+        - imageUrl
+        - steps
+        - completed
+
+    WorkoutCompletion:
+      type: object
+      properties:
+        workoutId:
+          type: integer
+        completed:
+          type: boolean
+        pointsEarned:
+          type: integer
+        totalPoints:
+          type: integer
+      required:
+        - workoutId
+        - completed
+        - pointsEarned
+        - totalPoints
+
+    Meal:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        goal:
+          type: string
+          enum: [weight-loss, muscle-gain, maintenance]
+        calories:
+          type: integer
+        protein:
+          type: number
+        carbs:
+          type: number
+        fat:
+          type: number
+        imageUrl:
+          type: string
+        ingredients:
+          type: array
+          items:
+            type: string
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+      required:
+        - id
+        - title
+        - description
+        - goal
+        - calories
+        - protein
+        - carbs
+        - fat
+        - imageUrl
+        - ingredients
+        - mealType
+
+    DiaryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        mealId:
+          type: integer
+        mealTitle:
+          type: string
+        calories:
+          type: integer
+        date:
+          type: string
+        mealType:
+          type: string
+      required:
+        - id
+        - mealId
+        - mealTitle
+        - calories
+        - date
+        - mealType
+
+    NewDiaryEntry:
+      type: object
+      properties:
+        mealId:
+          type: integer
+        date:
+          type: string
+        mealType:
+          type: string
+      required:
+        - mealId
+        - date
+        - mealType
+
+    Article:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        imageUrl:
+          type: string
+        author:
+          type: string
+        publishedAt:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        favorited:
+          type: boolean
+      required:
+        - id
+        - title
+        - excerpt
+        - content
+        - imageUrl
+        - author
+        - publishedAt
+        - tags
+        - favorited
+
+    FavoriteResult:
+      type: object
+      properties:
+        articleId:
+          type: integer
+        favorited:
+          type: boolean
+      required:
+        - articleId
+        - favorited
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        age:
+          type: integer
+        weight:
+          type: number
+        height:
+          type: number
+        goal:
+          type: string
+          enum: [weight-loss, muscle-gain, maintenance, endurance]
+        avatarUrl:
+          type: string
+        points:
+          type: integer
+        level:
+          type: integer
+        joinedAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - age
+        - weight
+        - height
+        - goal
+        - points
+        - level
+        - joinedAt
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+        weight:
+          type: number
+        height:
+          type: number
+        goal:
+          type: string
+
+    Progress:
+      type: object
+      properties:
+        totalWorkouts:
+          type: integer
+        completedWorkouts:
+          type: integer
+        totalCaloriesBurned:
+          type: integer
+        totalPoints:
+          type: integer
+        level:
+          type: integer
+        weeklyStreak:
+          type: integer
+        weeklyWorkouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklyWorkout"
+        recentAchievements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Achievement"
+      required:
+        - totalWorkouts
+        - completedWorkouts
+        - totalCaloriesBurned
+        - totalPoints
+        - level
+        - weeklyStreak
+        - weeklyWorkouts
+        - recentAchievements
+
+    WeeklyWorkout:
+      type: object
+      properties:
+        day:
+          type: string
+        count:
+          type: integer
+        calories:
+          type: integer
+      required:
+        - day
+        - count
+        - calories
+
+    Achievement:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        earnedAt:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - icon
+        - earnedAt

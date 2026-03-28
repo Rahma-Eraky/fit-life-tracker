@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "Smooth animations and page transitions"
+  "recharts": "Progress charts on profile page"
+  "date-fns": "Date formatting for diaries and blog posts"
+  "react-hook-form": "Form handling for profile editing"
+  "@hookform/resolvers": "Zod validation for forms"
+
+images:
+  - path: "artifacts/fitness-app/public/images/hero-bg.png"
+    description: "Dark, moody, high-contrast energetic fitness background. Abstract gym atmosphere with vibrant electric neon green lighting accents and deep shadows."
+    aspect_ratio: "16:9"
+  - path: "artifacts/fitness-app/public/images/logo.png"
+    description: "Modern minimalist premium fitness app logo mark. A bold geometric lightning bolt or abstract pulse symbol in bright electric neon green on a transparent or pure black background."
+    aspect_ratio: "1:1"
+
+notes:
+  - Backend API uses @workspace/api-client-react hooks
+  - Relies on API endpoints matching the OpenAPI specification precisely

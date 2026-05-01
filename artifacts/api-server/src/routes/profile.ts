@@ -7,12 +7,20 @@ import {
   UpdateProfileBody,
   UpdateProfileResponse,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// GET /profile
+// All profile routes are per-user — the JWT tells us whose row to read.
+router.use(requireAuth);
+
+// GET /profile — returns the profile row scoped to the authenticated user.
 router.get("/", async (req, res) => {
-  const profiles = await db.select().from(profileTable).limit(1);
+  const profiles = await db
+    .select()
+    .from(profileTable)
+    .where(eq(profileTable.userId, req.user!.id))
+    .limit(1);
   const profile = profiles[0];
 
   if (!profile) {
@@ -23,11 +31,15 @@ router.get("/", async (req, res) => {
   res.json(GetProfileResponse.parse({ ...profile, avatarUrl: profile.avatarUrl ?? undefined }));
 });
 
-// PUT /profile
+// PUT /profile — updates only the authenticated user's profile row.
 router.put("/", async (req, res) => {
   const body = UpdateProfileBody.parse(req.body);
 
-  const profiles = await db.select().from(profileTable).limit(1);
+  const profiles = await db
+    .select()
+    .from(profileTable)
+    .where(eq(profileTable.userId, req.user!.id))
+    .limit(1);
   const profile = profiles[0];
 
   if (!profile) {

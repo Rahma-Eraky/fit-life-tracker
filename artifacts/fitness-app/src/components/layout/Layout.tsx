@@ -1,6 +1,8 @@
 import { Navbar } from "./Navbar";
+import { useTranslation } from "@/lib/language-context";
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navbar />
@@ -9,7 +11,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
       <footer className="border-t border-border/50 py-8 text-center text-muted-foreground text-sm">
         <div className="container mx-auto">
-          <p>© {new Date().getFullYear()} FitTrack. Unleash your potential.</p>
+          <p>© {new Date().getFullYear()} FitTrack. {t("layout.footerTagline")}</p>
         </div>
       </footer>
     </div>

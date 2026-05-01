@@ -13,6 +13,11 @@ export const workoutsTable = pgTable("workouts", {
   imageUrl: text("image_url").notNull(),
   steps: text("steps").notNull(), // JSON array stored as text
   completed: boolean("completed").notNull().default(false),
+  completionCount: integer("completion_count").notNull().default(0),
+  // Optional YouTube URL shown on the workout detail page. Nullable so
+  // existing rows don't need a backfill — the detail page just hides the
+  // video section when this is null/empty.
+  videoUrl: text("video_url"),
 });
 
 export const insertWorkoutSchema = createInsertSchema(workoutsTable).omit({ id: true });

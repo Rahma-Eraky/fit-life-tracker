@@ -1,58 +1,97 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { mealsTable, diaryEntriesTable } from "@workspace/db/schema";
-import { eq, like, and } from "drizzle-orm";
+import { eq, ilike, and, or, isNull } from "drizzle-orm";
 import {
   GetMealsResponse,
   GetFoodDiaryResponse,
   AddFoodDiaryEntryBody,
+  CreateMealBody,
+  UpdateMealBody,
+  UpdateFoodDiaryEntryBody,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// GET /meals
+// All meal + diary operations are user-scoped. Seeded recipes live with
+// `userId = NULL` and are treated as a shared library visible to every
+// authenticated user; custom meals carry their owner's id.
+router.use(requireAuth);
+
+/**
+ * Ingredients are stored as a JSON-encoded string for seed recipes but
+ * null for user-created quick meals. This helper keeps the response
+ * shape consistent — always a string[] or null — without crashing on null.
+ */
+function parseIngredients(raw: string | null): string[] | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as string[];
+  } catch {
+    return null;
+  }
+}
+
+// GET /meals — returns the shared library (userId IS NULL) plus whatever
+// custom meals the authenticated user owns. One query via OR so we don't
+// have to paginate two result sets.
 router.get("/", async (req, res) => {
   const { goal, search } = req.query as Record<string, string>;
 
-  const conditions = [];
-  if (goal) conditions.push(eq(mealsTable.goal, goal));
-  if (search) conditions.push(like(mealsTable.title, `%${search}%`));
+  const ownership = or(
+    isNull(mealsTable.userId),
+    eq(mealsTable.userId, req.user!.id)
+  );
 
-  const rows = conditions.length
-    ? await db.select().from(mealsTable).where(and(...conditions))
-    : await db.select().from(mealsTable);
+  const conditions = [ownership];
+  if (goal) conditions.push(eq(mealsTable.goal, goal));
+  // Case-insensitive search so "Chicken" and "chicken" match the same rows.
+  if (search) conditions.push(ilike(mealsTable.title, `%${search}%`));
+
+  const rows = await db
+    .select()
+    .from(mealsTable)
+    .where(and(...conditions));
 
   const meals = rows.map((m) => ({
     ...m,
-    ingredients: JSON.parse(m.ingredients) as string[],
+    ingredients: parseIngredients(m.ingredients),
   }));
 
   res.json(GetMealsResponse.parse(meals));
 });
 
-// GET /meals/diary
+// GET /meals/diary — only the authenticated user's entries.
 router.get("/diary", async (req, res) => {
   const { date } = req.query as Record<string, string>;
 
+  const userCond = eq(diaryEntriesTable.userId, req.user!.id);
   const rows = date
     ? await db
         .select()
         .from(diaryEntriesTable)
-        .where(eq(diaryEntriesTable.date, date))
-    : await db.select().from(diaryEntriesTable);
+        .where(and(userCond, eq(diaryEntriesTable.date, date)))
+    : await db.select().from(diaryEntriesTable).where(userCond);
 
   res.json(GetFoodDiaryResponse.parse(rows));
 });
 
-// POST /meals/diary
+// POST /meals/diary — attaches userId so the entry is scoped. The meal
+// being logged may be a shared seeded one (userId = null) or the user's
+// own custom meal; both are fine to log.
 router.post("/diary", async (req, res) => {
   const body = AddFoodDiaryEntryBody.parse(req.body);
 
-  // Fetch the meal to get its details
   const meals = await db
     .select()
     .from(mealsTable)
-    .where(eq(mealsTable.id, body.mealId))
+    .where(
+      and(
+        eq(mealsTable.id, body.mealId),
+        or(isNull(mealsTable.userId), eq(mealsTable.userId, req.user!.id))
+      )
+    )
     .limit(1);
 
   const meal = meals[0];
@@ -64,6 +103,7 @@ router.post("/diary", async (req, res) => {
   const [entry] = await db
     .insert(diaryEntriesTable)
     .values({
+      userId: req.user!.id,
       mealId: body.mealId,
       mealTitle: meal.title,
       calories: meal.calories,
@@ -73,6 +113,152 @@ router.post("/diary", async (req, res) => {
     .returning();
 
   res.status(201).json(entry);
+});
+
+// PUT /meals/diary/:id — narrow update: only mealType is editable. We
+// deliberately don't accept calories/date/mealId here because:
+//   - calories is a snapshot from the meal at log time; letting callers
+//     overwrite it invites drift
+//   - the sidebar only ever shows Today's entries, so a date change
+//     would make the edited row silently disappear
+//   - swapping the meal is better modeled as delete + re-add
+// Scoped to the owning user so one user can't tamper with another's diary.
+//
+// IMPORTANT: this handler is registered BEFORE `/:id` (meal routes) so
+// Express matches `/diary/:id` as a diary operation, not a meal one.
+router.put("/diary/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const body = UpdateFoodDiaryEntryBody.parse(req.body);
+
+  const updated = await db
+    .update(diaryEntriesTable)
+    .set({
+      mealType: body.mealType,
+    })
+    .where(
+      and(
+        eq(diaryEntriesTable.id, id),
+        eq(diaryEntriesTable.userId, req.user!.id)
+      )
+    )
+    .returning();
+
+  if (updated.length === 0) {
+    res.status(404).json({ error: "Diary entry not found" });
+    return;
+  }
+
+  res.json(updated[0]);
+});
+
+// DELETE /meals/diary/:id — owner-only hard delete. The meal itself in
+// the library is untouched (separate table); only this specific log
+// line vanishes. Registered before `/:id` meal routes for the same
+// route-matching reason as the PUT above.
+router.delete("/diary/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const deleted = await db
+    .delete(diaryEntriesTable)
+    .where(
+      and(
+        eq(diaryEntriesTable.id, id),
+        eq(diaryEntriesTable.userId, req.user!.id)
+      )
+    )
+    .returning({ id: diaryEntriesTable.id });
+
+  if (deleted.length === 0) {
+    res.status(404).json({ error: "Diary entry not found" });
+    return;
+  }
+
+  res.status(204).end();
+});
+
+// POST /meals — create a custom meal. The required fields are title,
+// calories, and mealType; protein, carbs and imageUrl are optional. When
+// the client omits them (quick-add flow) we persist NULL, which matches
+// the schema (all three columns are nullable). The new row is tagged
+// with the creator's userId so it only appears in their meal list and
+// only they can edit/delete it.
+router.post("/", async (req, res) => {
+  const body = CreateMealBody.parse(req.body);
+
+  const [created] = await db
+    .insert(mealsTable)
+    .values({
+      userId: req.user!.id,
+      title: body.title,
+      calories: body.calories,
+      mealType: body.mealType,
+      protein: body.protein ?? null,
+      carbs: body.carbs ?? null,
+      imageUrl: body.imageUrl ?? null,
+    })
+    .returning();
+
+  res.status(201).json({
+    ...created,
+    ingredients: parseIngredients(created.ingredients),
+  });
+});
+
+// PUT /meals/:id — full replace of a meal's editable fields. Scoped to the
+// owner: seeded recipes (userId = null) are read-only, and one user can't
+// edit another user's custom meals. `protein`, `carbs` and `imageUrl` are
+// persisted with `?? null` so the client can actively clear any of them
+// (e.g. user removes the image) by sending an explicit null.
+router.put("/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const body = UpdateMealBody.parse(req.body);
+
+  const updated = await db
+    .update(mealsTable)
+    .set({
+      title: body.title,
+      calories: body.calories,
+      mealType: body.mealType,
+      protein: body.protein ?? null,
+      carbs: body.carbs ?? null,
+      imageUrl: body.imageUrl ?? null,
+    })
+    .where(
+      and(eq(mealsTable.id, id), eq(mealsTable.userId, req.user!.id))
+    )
+    .returning();
+
+  if (updated.length === 0) {
+    res.status(404).json({ error: "Meal not found" });
+    return;
+  }
+
+  const meal = updated[0];
+  res.json({
+    ...meal,
+    ingredients: parseIngredients(meal.ingredients),
+  });
+});
+
+// DELETE /meals/:id — owner-only hard delete. Existing diary entries keep
+// their `mealTitle`/`calories` snapshot (stored at log time), so deleting
+// a meal does not rewrite diary history.
+router.delete("/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const deleted = await db
+    .delete(mealsTable)
+    .where(
+      and(eq(mealsTable.id, id), eq(mealsTable.userId, req.user!.id))
+    )
+    .returning({ id: mealsTable.id });
+
+  if (deleted.length === 0) {
+    res.status(404).json({ error: "Meal not found" });
+    return;
+  }
+
+  res.status(204).end();
 });
 
 export default router;

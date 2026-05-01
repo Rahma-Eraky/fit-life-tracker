@@ -1,0 +1,3 @@
+@echo off
+start cmd /k "cd /d C:\Users\rahma\OneDrive\Desktop\Human Computer Interaction\Fit-Life-Tracker\Fit-Life-Tracker\artifacts\api-server && set PORT=3000 && set DATABASE_URL=postgresql://postgres:1234@localhost:5432/fitlife && pnpm dev"
+start cmd /k "cd /d C:\Users\rahma\OneDrive\Desktop\Human Computer Interaction\Fit-Life-Tracker\Fit-Life-Tracker\artifacts\fitness-app && set PORT=5173 && set BASE_PATH=/ && npm run dev"

@@ -1,3 +1,4 @@
+console.log("API DB =", process.env.DATABASE_URL);
 import app from "./app";
 import { logger } from "./lib/logger";
 

@@ -8,6 +8,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Pre-paint bootstrap — runs before React mounts so the very first
+      // frame uses the correct theme AND reading direction. Mirrors the
+      // logic in src/lib/theme-context.tsx and src/lib/language-context.tsx;
+      // keep this script in sync if you change either provider.
+      (function () {
+        // --- Theme (dark/light) ---
+        try {
+          var savedTheme = localStorage.getItem("fittrack.theme");
+          var theme = savedTheme === "light" ? "light" : "dark";
+          if (theme === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (_) {
+          document.documentElement.classList.add("dark");
+        }
+
+        // --- Language (en/ar) + reading direction (ltr/rtl) ---
+        try {
+          var savedLang = localStorage.getItem("fittrack.lang");
+          var lang = savedLang === "ar" ? "ar" : "en";
+          document.documentElement.setAttribute("lang", lang);
+          document.documentElement.setAttribute(
+            "dir",
+            lang === "ar" ? "rtl" : "ltr"
+          );
+        } catch (_) {
+          document.documentElement.setAttribute("lang", "en");
+          document.documentElement.setAttribute("dir", "ltr");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

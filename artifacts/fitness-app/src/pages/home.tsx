@@ -1,10 +1,12 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowRight, Flame, Trophy, Users, Zap } from "lucide-react";
+import { ArrowRight, Flame, Trophy, Zap } from "lucide-react";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/lib/language-context";
 
 export default function Home() {
+  const { t } = useTranslation();
   return (
     <PageTransition>
       {/* Hero Section */}
@@ -26,28 +28,28 @@ export default function Home() {
               transition={{ delay: 0.2, duration: 0.6 }}
             >
               <span className="inline-block py-1 px-3 rounded-full bg-primary/20 text-primary font-bold text-sm tracking-wider mb-6 border border-primary/30">
-                ELEVATE YOUR POTENTIAL
+                {t("home.heroKicker")}
               </span>
               <h1 className="text-5xl md:text-7xl lg:text-8xl font-black font-display leading-[1.1] mb-6">
-                TRAIN LIKE A <br />
+                {t("home.heroTitleLine1")} <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-300">
-                  CHAMPION
+                  {t("home.heroTitleLine2")}
                 </span>
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl leading-relaxed">
-                The ultimate platform to track your workouts, optimize your nutrition, and crush your goals. Join thousands of athletes transforming their lives today.
+                {t("home.heroDescription")}
               </p>
-              
+
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/workouts">
                   <Button size="lg" className="w-full sm:w-auto h-14 px-8 text-lg font-bold rounded-full bg-primary hover:bg-primary/90 text-primary-foreground neon-glow group">
-                    Start Training Now
-                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    {t("home.startTrainingNow")}
+                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform rtl:rotate-180 rtl:group-hover:-translate-x-1" />
                   </Button>
                 </Link>
                 <Link href="/profile">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto h-14 px-8 text-lg font-bold rounded-full border-white/20 hover:bg-white/5">
-                    View Your Profile
+                  <Button variant="outline" size="lg" className="w-full sm:w-auto h-14 px-8 text-lg font-bold rounded-full border-border dark:border-white/20 hover:bg-muted/60 dark:hover:bg-white/5">
+                    {t("home.viewYourProfile")}
                   </Button>
                 </Link>
               </div>
@@ -60,9 +62,9 @@ export default function Home() {
       <section className="py-24 bg-background">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-black mb-4">EVERYTHING YOU NEED</h2>
+            <h2 className="text-3xl md:text-5xl font-black mb-4">{t("home.featuresTitle")}</h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              We provide the tools. You bring the sweat. Track every aspect of your fitness journey in one place.
+              {t("home.featuresSubtitle")}
             </p>
           </div>
 
@@ -70,20 +72,20 @@ export default function Home() {
             {[
               {
                 icon: <Flame className="w-8 h-8 text-primary" />,
-                title: "Elite Workouts",
-                description: "Access hundreds of workouts spanning strength, cardio, and yoga. Track completion and earn points.",
+                title: t("home.eliteWorkoutsTitle"),
+                description: t("home.eliteWorkoutsDesc"),
                 link: "/workouts"
               },
               {
                 icon: <Zap className="w-8 h-8 text-primary" />,
-                title: "Smart Nutrition",
-                description: "Discover recipes tailored to your goals. Log your meals in your daily food diary and track macros.",
+                title: t("home.smartNutritionTitle"),
+                description: t("home.smartNutritionDesc"),
                 link: "/nutrition"
               },
               {
                 icon: <Trophy className="w-8 h-8 text-primary" />,
-                title: "Gamified Progress",
-                description: "Earn points, level up, and unlock achievements. Watch your stats grow with interactive charts.",
+                title: t("home.gamifiedProgressTitle"),
+                description: t("home.gamifiedProgressDesc"),
                 link: "/profile"
               }
             ].map((feature, i) => (
@@ -93,7 +95,7 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.5 }}
-                className="bg-card p-8 rounded-3xl border border-white/5 hover:border-primary/30 transition-colors group"
+                className="bg-card p-8 rounded-3xl border border-border dark:border-white/5 hover:border-primary/30 transition-colors group"
               >
                 <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   {feature.icon}
@@ -103,7 +105,7 @@ export default function Home() {
                   {feature.description}
                 </p>
                 <Link href={feature.link} className="text-primary font-bold flex items-center hover:underline">
-                  Explore <ArrowRight className="ml-1 w-4 h-4" />
+                  {t("home.explore")} <ArrowRight className="ml-1 w-4 h-4 rtl:rotate-180" />
                 </Link>
               </motion.div>
             ))}
@@ -112,14 +114,14 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 border-y border-white/5 bg-secondary/30">
+      <section className="py-20 border-y border-border dark:border-white/5 bg-secondary/30">
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { label: "Active Users", value: "10K+" },
-              { label: "Workouts Logged", value: "500K" },
-              { label: "Meals Tracked", value: "1.2M" },
-              { label: "Calories Burned", value: "50M+" },
+              { label: t("home.statActiveUsers"), value: "10K+" },
+              { label: t("home.statWorkoutsLogged"), value: "500K" },
+              { label: t("home.statMealsTracked"), value: "1.2M" },
+              { label: t("home.statCaloriesBurned"), value: "50M+" },
             ].map((stat, i) => (
               <div key={i} className="flex flex-col items-center justify-center space-y-2">
                 <span className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-200">

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { articlesTable } from "@workspace/db/schema";
-import { eq, like } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 import {
   GetBlogArticlesResponse,
   ToggleArticleFavoriteResponse,
@@ -13,11 +13,12 @@ const router: IRouter = Router();
 router.get("/", async (req, res) => {
   const { search } = req.query as Record<string, string>;
 
+  // Case-insensitive search so "The" and "the" match the same rows.
   const rows = search
     ? await db
         .select()
         .from(articlesTable)
-        .where(like(articlesTable.title, `%${search}%`))
+        .where(ilike(articlesTable.title, `%${search}%`))
     : await db.select().from(articlesTable);
 
   const articles = rows.map((a) => ({

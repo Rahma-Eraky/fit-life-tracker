@@ -9,6 +9,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
   - name: workouts
     description: Workout operations
   - name: meals
@@ -32,6 +34,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Email already registered
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get currently authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
 
   /workouts:
     get:
@@ -103,6 +164,61 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Meal"
+    post:
+      operationId: createMeal
+      tags: [meals]
+      summary: Create a custom meal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMeal"
+      responses:
+        "201":
+          description: Meal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+
+  /meals/{id}:
+    put:
+      operationId: updateMeal
+      tags: [meals]
+      summary: Update a meal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeal"
+      responses:
+        "200":
+          description: Meal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+    delete:
+      operationId: deleteMeal
+      tags: [meals]
+      summary: Delete a meal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Meal deleted
 
   /meals/diary:
     get:
@@ -140,6 +256,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DiaryEntry"
+
+  /meals/diary/{id}:
+    put:
+      operationId: updateFoodDiaryEntry
+      tags: [meals]
+      summary: Update a food diary entry (meal type only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDiaryEntry"
+      responses:
+        "200":
+          description: Diary entry updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiaryEntry"
+    delete:
+      operationId: deleteFoodDiaryEntry
+      tags: [meals]
+      summary: Delete a food diary entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Diary entry deleted
 
   /blog:
     get:
@@ -224,6 +378,11 @@ paths:
                 $ref: "#/components/schemas/Progress"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     HealthStatus:
       type: object
@@ -232,6 +391,59 @@ components:
           type: string
       required:
         - status
+
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+      required:
+        - email
+        - password
+        - name
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - email
+        - name
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required:
+        - token
+        - user
 
     Workout:
       type: object
@@ -262,6 +474,13 @@ components:
             type: string
         completed:
           type: boolean
+        completionCount:
+          type: integer
+          description: Number of times this workout has been completed
+        videoUrl:
+          type: string
+          nullable: true
+          description: Optional YouTube URL shown on the workout detail page
       required:
         - id
         - title
@@ -273,6 +492,7 @@ components:
         - imageUrl
         - steps
         - completed
+        - completionCount
 
     WorkoutCompletion:
       type: object
@@ -281,6 +501,9 @@ components:
           type: integer
         completed:
           type: boolean
+        completionCount:
+          type: integer
+          description: Total number of completions for this workout after the new one was recorded
         pointsEarned:
           type: integer
         totalPoints:
@@ -288,6 +511,7 @@ components:
       required:
         - workoutId
         - completed
+        - completionCount
         - pointsEarned
         - totalPoints
 
@@ -300,37 +524,85 @@ components:
           type: string
         description:
           type: string
+          nullable: true
         goal:
           type: string
+          nullable: true
           enum: [weight-loss, muscle-gain, maintenance]
         calories:
           type: integer
         protein:
           type: number
+          nullable: true
         carbs:
           type: number
+          nullable: true
         fat:
           type: number
+          nullable: true
         imageUrl:
           type: string
+          nullable: true
         ingredients:
           type: array
           items:
             type: string
+          nullable: true
         mealType:
           type: string
           enum: [breakfast, lunch, dinner, snack]
       required:
         - id
         - title
-        - description
-        - goal
         - calories
-        - protein
-        - carbs
-        - fat
-        - imageUrl
-        - ingredients
+        - mealType
+
+    NewMeal:
+      type: object
+      properties:
+        title:
+          type: string
+        calories:
+          type: integer
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        protein:
+          type: number
+          nullable: true
+        carbs:
+          type: number
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+      required:
+        - title
+        - calories
+        - mealType
+
+    UpdateMeal:
+      type: object
+      properties:
+        title:
+          type: string
+        calories:
+          type: integer
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        protein:
+          type: number
+          nullable: true
+        carbs:
+          type: number
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+      required:
+        - title
+        - calories
         - mealType
 
     DiaryEntry:
@@ -368,6 +640,15 @@ components:
       required:
         - mealId
         - date
+        - mealType
+
+    UpdateDiaryEntry:
+      type: object
+      properties:
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+      required:
         - mealType
 
     Article:

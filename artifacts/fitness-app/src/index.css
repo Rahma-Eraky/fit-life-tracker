@@ -50,38 +50,74 @@
 }
 
 :root {
-  /* Dark vibrant athletic theme */
+  /* Light theme (fallback / non-dark default).
+     The app boots into dark mode via a pre-paint script in index.html and
+     the ThemeProvider, so these values only apply when the user explicitly
+     toggles to light. Hues match the dark theme so brand colors stay. */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 6%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 6%;
+  --card-border: 240 6% 90%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 6%;
+  --popover-border: 240 6% 90%;
+
+  --primary: 142 71% 38%; /* Electric Green, darkened for contrast on white */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 240 6% 95%;
+  --secondary-foreground: 240 10% 6%;
+
+  --muted: 240 6% 95%;
+  --muted-foreground: 240 5% 40%;
+
+  --accent: 142 71% 38%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 240 6% 88%;
+  --input: 240 6% 88%;
+  --ring: 142 71% 38%;
+
+  --radius: 0.75rem;
+}
+
+:root.dark {
+  /* Dark vibrant athletic theme (original default). */
   --background: 240 10% 4%;
   --foreground: 0 0% 98%;
-  
+
   --card: 240 10% 6%;
   --card-foreground: 0 0% 98%;
   --card-border: 240 5% 12%;
-  
+
   --popover: 240 10% 6%;
   --popover-foreground: 0 0% 98%;
   --popover-border: 240 5% 12%;
-  
+
   --primary: 142 71% 45%; /* Electric Green */
   --primary-foreground: 240 10% 4%;
-  
+
   --secondary: 240 5% 12%;
   --secondary-foreground: 0 0% 98%;
-  
+
   --muted: 240 5% 12%;
   --muted-foreground: 240 5% 65%;
-  
+
   --accent: 142 71% 45%;
   --accent-foreground: 240 10% 4%;
-  
+
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  
+
   --border: 240 5% 16%;
   --input: 240 5% 16%;
   --ring: 142 71% 45%;
-  
-  --radius: 0.75rem;
 }
 
 @layer base {
@@ -98,8 +134,14 @@
 }
 
 @layer utilities {
+  /* Glass panel — border-color switches between themes so the edge
+     stays visible on light backgrounds without feeling heavy on dark. */
   .glass-panel {
-    @apply bg-card/80 backdrop-blur-xl border border-white/5 shadow-xl;
+    @apply bg-card/80 backdrop-blur-xl border shadow-xl;
+    border-color: hsl(var(--border) / 0.6);
+  }
+  :root.dark .glass-panel {
+    border-color: hsl(0 0% 100% / 0.05);
   }
   .neon-glow {
     box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.5);

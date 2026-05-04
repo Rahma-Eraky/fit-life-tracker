@@ -576,6 +576,9 @@ components:
         imageUrl:
           type: string
           nullable: true
+        description:
+          type: string
+          nullable: true
       required:
         - title
         - calories
@@ -598,6 +601,9 @@ components:
           type: number
           nullable: true
         imageUrl:
+          type: string
+          nullable: true
+        description:
           type: string
           nullable: true
       required:
@@ -648,8 +654,9 @@ components:
         mealType:
           type: string
           enum: [breakfast, lunch, dinner, snack]
-      required:
-        - mealType
+        calories:
+          type: integer
+          minimum: 0
 
     Article:
       type: object

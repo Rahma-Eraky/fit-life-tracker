@@ -221,6 +221,21 @@ export default function WorkoutDetail() {
           </section>
         )}
 
+        {/* Start Workout — opens the guided per-step timer player.
+            Only shown when the workout actually has steps; otherwise
+            the timer page would just render its empty state. */}
+        {workout.steps.length > 0 && (
+          <Link href={`/workouts/${workout.id}/session`}>
+            <Button
+              variant="outline"
+              className="w-full h-14 rounded-xl font-bold text-lg border-primary/40 text-primary hover:bg-primary/10 mb-3"
+            >
+              <Play className="mr-2 rtl:mr-0 rtl:ml-2 w-5 h-5 fill-current" />{" "}
+              {t("workouts.startWorkout")}
+            </Button>
+          </Link>
+        )}
+
         {/* Mark Complete — same behaviour as the list card: reuses the
             existing mutation, so points awarding + completionCount
             increment + cache invalidation all go through the exact

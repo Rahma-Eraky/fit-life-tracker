@@ -33,6 +33,18 @@ function parseIngredients(raw: string | null): string[] | null {
   }
 }
 
+/**
+ * Normalize an optional text field coming from the client. Treats
+ * undefined, null, and empty/whitespace-only strings all as "no value"
+ * so the column ends up as NULL rather than an empty string. Keeps the
+ * frontend's nullish-aware rendering simple.
+ */
+function normalizeOptionalText(raw: string | null | undefined): string | null {
+  if (raw === undefined || raw === null) return null;
+  const trimmed = raw.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 // GET /meals — returns the shared library (userId IS NULL) plus whatever
 // custom meals the authenticated user owns. One query via OR so we don't
 // have to paginate two result sets.
@@ -115,14 +127,13 @@ router.post("/diary", async (req, res) => {
   res.status(201).json(entry);
 });
 
-// PUT /meals/diary/:id — narrow update: only mealType is editable. We
-// deliberately don't accept calories/date/mealId here because:
-//   - calories is a snapshot from the meal at log time; letting callers
-//     overwrite it invites drift
-//   - the sidebar only ever shows Today's entries, so a date change
-//     would make the edited row silently disappear
-//   - swapping the meal is better modeled as delete + re-add
-// Scoped to the owning user so one user can't tamper with another's diary.
+// PUT /meals/diary/:id — partial update for an individual diary row.
+// Both mealType and calories are inline-editable from the diary
+// sidebar; either may be sent on its own. We intentionally still
+// don't accept date/mealId here (changing those would silently move
+// or rewire the entry — better modeled as delete + re-add).
+// Scoped to the owning user so one user can't tamper with another's
+// diary.
 //
 // IMPORTANT: this handler is registered BEFORE `/:id` (meal routes) so
 // Express matches `/diary/:id` as a diary operation, not a meal one.
@@ -130,11 +141,22 @@ router.put("/diary/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const body = UpdateFoodDiaryEntryBody.parse(req.body);
 
+  // Build a partial set so we only touch the columns the client
+  // actually sent — `undefined` would otherwise overwrite a column
+  // with `null` (Drizzle treats undefined as "set to null" in some
+  // adapter combinations; safer to omit the key entirely).
+  const patch: { mealType?: typeof body.mealType; calories?: number } = {};
+  if (body.mealType !== undefined) patch.mealType = body.mealType;
+  if (body.calories !== undefined) patch.calories = body.calories;
+
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "No editable fields supplied" });
+    return;
+  }
+
   const updated = await db
     .update(diaryEntriesTable)
-    .set({
-      mealType: body.mealType,
-    })
+    .set(patch)
     .where(
       and(
         eq(diaryEntriesTable.id, id),
@@ -195,6 +217,10 @@ router.post("/", async (req, res) => {
       protein: body.protein ?? null,
       carbs: body.carbs ?? null,
       imageUrl: body.imageUrl ?? null,
+      // Description is optional on the form. We trim and normalize an
+      // empty string to null so the column stays clean (and so the
+      // meal card's nullish render doesn't show a blank paragraph).
+      description: normalizeOptionalText(body.description),
     })
     .returning();
 
@@ -222,6 +248,8 @@ router.put("/:id", async (req, res) => {
       protein: body.protein ?? null,
       carbs: body.carbs ?? null,
       imageUrl: body.imageUrl ?? null,
+      // Same normalization as POST so an empty edit clears the column.
+      description: normalizeOptionalText(body.description),
     })
     .where(
       and(eq(mealsTable.id, id), eq(mealsTable.userId, req.user!.id))

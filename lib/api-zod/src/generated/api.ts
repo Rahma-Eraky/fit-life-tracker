@@ -126,7 +126,11 @@ export const GetMealsResponse = zod.array(GetMealsResponseItem)
 export const CreateMealBody = zod.object({
   "title": zod.string().min(1),
   "calories": zod.number().int().min(0),
-  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack'])
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "description": zod.string().nullish()
 })
 
 export const CreateMealResponse = GetMealsResponseItem
@@ -141,7 +145,11 @@ export const UpdateMealParams = zod.object({
 export const UpdateMealBody = zod.object({
   "title": zod.string().min(1),
   "calories": zod.number().int().min(0),
-  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack'])
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "protein": zod.number().nullish(),
+  "carbs": zod.number().nullish(),
+  "imageUrl": zod.string().nullish(),
+  "description": zod.string().nullish()
 })
 
 export const UpdateMealResponse = GetMealsResponseItem
@@ -189,7 +197,8 @@ export const UpdateFoodDiaryEntryParams = zod.object({
 })
 
 export const UpdateFoodDiaryEntryBody = zod.object({
-  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack'])
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']).optional(),
+  "calories": zod.number().int().min(0).optional()
 })
 
 export const UpdateFoodDiaryEntryResponse = GetFoodDiaryResponseItem

@@ -12,12 +12,19 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative min-h-[85vh] flex items-center pt-20 overflow-hidden">
         <div className="absolute inset-0 z-0">
+          {/* High-quality gym/fitness shot from Unsplash. Mid-tone
+              lighting works in both light and dark themes — neither
+              washes out nor goes pure black. */}
           <img
-            src={`${import.meta.env.BASE_URL}images/hero-bg.png`}
-            alt="Hero Background"
-            className="w-full h-full object-cover opacity-40"
+            src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1920&q=85&auto=format&fit=crop"
+            alt="Athlete training with dumbbells in a gym"
+            className="w-full h-full object-cover opacity-50 dark:opacity-55"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          {/* Two-stop overlay using the semantic `background` token, so
+              the wash is dark in dark mode and light in light mode.
+              Strong fade at the bottom for text contrast, lighter at
+              the top so the image still reads. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/35" />
         </div>
 
         <div className="container mx-auto px-4 md:px-6 relative z-10">

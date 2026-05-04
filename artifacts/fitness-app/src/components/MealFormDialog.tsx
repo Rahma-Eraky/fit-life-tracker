@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -50,6 +51,8 @@ export type MealFormValues = {
   carbs: number | null;
   /** Data URL or http(s) URL. `null` means no image / cleared. */
   imageUrl: string | null;
+  /** Optional free-text description. `null` for no description. */
+  description: string | null;
 };
 
 interface MealFormDialogProps {
@@ -116,6 +119,7 @@ export function MealFormDialog({
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Hidden file input pattern: a styled Button triggers the click so we
@@ -132,6 +136,7 @@ export function MealFormDialog({
     setProtein(initialMeal?.protein != null ? String(initialMeal.protein) : "");
     setCarbs(initialMeal?.carbs != null ? String(initialMeal.carbs) : "");
     setImageUrl(initialMeal?.imageUrl ?? null);
+    setDescription(initialMeal?.description ?? "");
     setError(null);
     // Clear the native file input so re-opening doesn't show a stale
     // filename label (some browsers keep it across .value resets).
@@ -203,6 +208,9 @@ export function MealFormDialog({
     }
 
     setError(null);
+    // Description is optional. Trim and convert empty to null so the
+    // API doesn't store whitespace-only strings.
+    const trimmedDescription = description.trim();
     await onSubmit({
       title: trimmedTitle,
       calories: Math.round(parsedCalories),
@@ -210,6 +218,7 @@ export function MealFormDialog({
       protein: parsedProtein,
       carbs: parsedCarbs,
       imageUrl,
+      description: trimmedDescription === "" ? null : trimmedDescription,
     });
   };
 
@@ -314,6 +323,26 @@ export function MealFormDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Optional free-text description. Renders on the meal card
+              below the macros, so a one-line note (e.g. "leftovers
+              from Sunday") is enough — but the textarea allows a few
+              lines for users who want richer context. */}
+          <div className="space-y-2">
+            <Label
+              htmlFor="meal-description"
+              className="text-sm font-bold uppercase tracking-wider text-muted-foreground"
+            >
+              {t("mealForm.descriptionLabel")}
+            </Label>
+            <Textarea
+              id="meal-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t("mealForm.descriptionPlaceholder")}
+              className="bg-background border-border dark:border-white/10 rounded-xl min-h-[80px] resize-y"
+            />
           </div>
 
           {/* Image upload — hidden native input + styled trigger button so

@@ -10,6 +10,7 @@ import { RequireAuth } from "./components/RequireAuth";
 import Home from "./pages/home";
 import Workouts from "./pages/workouts";
 import WorkoutDetail from "./pages/workout-detail";
+import WorkoutSession from "./pages/workout-session";
 import Nutrition from "./pages/nutrition";
 import Blog from "./pages/blog";
 import BlogDetail from "./pages/blog-detail";
@@ -53,6 +54,10 @@ function Router() {
 
         {/* Auth-gated routes — hit /login and bounce back after sign-in */}
         <Route path="/workouts/:id" component={protectedRoute(WorkoutDetail)} />
+        <Route
+          path="/workouts/:id/session"
+          component={protectedRoute(WorkoutSession)}
+        />
         <Route path="/nutrition" component={protectedRoute(Nutrition)} />
         <Route path="/blog/:id" component={protectedRoute(BlogDetail)} />
         <Route path="/profile" component={protectedRoute(Profile)} />

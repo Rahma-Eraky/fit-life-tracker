@@ -11,6 +11,7 @@ import {
   useUpdateFoodDiaryEntry,
   getGetFoodDiaryQueryKey,
   getGetMealsQueryKey,
+  getGetProgressQueryKey,
   type Meal,
   type DiaryEntry,
   type UpdateDiaryEntryMealType,
@@ -37,8 +38,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Search, Plus, Apple, Calendar, Target, Flame, Pencil, Trash2, Check } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO, isToday } from "date-fns";
+import { ar, enUS } from "date-fns/locale";
 import { useTranslation } from "@/lib/language-context";
 import { translateMeal } from "@/lib/translate-content";
 import { MEAL_TYPE_T_KEY } from "@/lib/content-translations";
@@ -66,7 +74,16 @@ const DIARY_MEAL_TYPES: UpdateDiaryEntryMealType[] = [
 export default function Nutrition() {
   const [search, setSearch] = useState("");
   const [goal, setGoal] = useState<(typeof GOAL_KEYS)[number]>("All");
-  const today = format(new Date(), 'yyyy-MM-dd');
+  // Selected date for the diary panel. Defaults to today, but the user
+  // can pick any past day via the calendar popover so they can backfill
+  // meals they forgot to log. Stored as YYYY-MM-DD to match the
+  // diary_entries.date column shape (plain date, no timezone suffix).
+  const [selectedDate, setSelectedDate] = useState<string>(
+    format(new Date(), "yyyy-MM-dd"),
+  );
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const selectedDateObj = parseISO(selectedDate);
+  const isSelectedToday = isToday(selectedDateObj);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { t, lang } = useTranslation();
@@ -76,7 +93,7 @@ export default function Nutrition() {
     goal: goal !== "All" ? goal.toLowerCase().replace(' ', '-') : undefined,
   });
 
-  const { data: diary } = useGetFoodDiary({ date: today });
+  const { data: diary } = useGetFoodDiary({ date: selectedDate });
   const mealsList = Array.isArray(meals) ? meals : [];
   const diaryList = Array.isArray(diary) ? diary : [];
 
@@ -98,7 +115,11 @@ export default function Nutrition() {
           title: t("nutrition.addedToDiaryTitle"),
           description: t("nutrition.addedToDiaryDesc"),
         });
+        // Refresh the diary AND the profile's progress chart so the
+        // calorie totals and weekly bars reflect the new entry without
+        // a hard reload.
         queryClient.invalidateQueries({ queryKey: getGetFoodDiaryQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
       },
       onError: () => {
         toast({
@@ -118,8 +139,13 @@ export default function Nutrition() {
   // -----------------------------------------------------------------------
   const [deletingEntry, setDeletingEntry] = useState<DiaryEntry | null>(null);
 
-  const invalidateDiary = () =>
+  // Invalidate both the diary list AND the progress aggregation so the
+  // profile page's weekly chart + total-calories number stay in sync
+  // with any add/edit/delete the user makes here.
+  const invalidateDiary = () => {
     queryClient.invalidateQueries({ queryKey: getGetFoodDiaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
+  };
 
   const deleteDiaryMutation = useDeleteFoodDiaryEntry({
     mutation: {
@@ -141,6 +167,12 @@ export default function Nutrition() {
     },
   });
 
+  // PUT /meals/diary/:id — covers both inline edits exposed in the
+  // sidebar (meal-type dropdown + calories tap-to-edit). The route
+  // accepts a partial body so each control sends only its field.
+  // Hits the diary endpoint, NOT /meals/:id, so it doesn't matter
+  // whether the underlying meal is shared or owned — the diary row
+  // is owner-scoped and always editable.
   const updateDiaryMutation = useUpdateFoodDiaryEntry({
     mutation: {
       onSuccess: () => {
@@ -168,6 +200,37 @@ export default function Nutrition() {
   ) => {
     if (entry.mealType === nextType) return;
     updateDiaryMutation.mutate({ id: entry.id, data: { mealType: nextType } });
+  };
+
+  // Inline calories editor — local state for which entry is currently
+  // in edit mode and the in-progress draft string. Stored as a string
+  // so the user can type freely (incl. clearing); we parse on commit.
+  const [editingCaloriesId, setEditingCaloriesId] = useState<number | null>(
+    null,
+  );
+  const [caloriesDraft, setCaloriesDraft] = useState("");
+
+  const startEditCalories = (entry: DiaryEntry) => {
+    setEditingCaloriesId(entry.id);
+    setCaloriesDraft(String(entry.calories));
+  };
+
+  const commitCalories = (entry: DiaryEntry) => {
+    const parsed = Number(caloriesDraft);
+    // Tear down the editor first so a re-render doesn't keep the
+    // input mounted while the toast/refetch is in flight.
+    setEditingCaloriesId(null);
+    setCaloriesDraft("");
+    if (
+      Number.isFinite(parsed) &&
+      parsed >= 0 &&
+      Math.round(parsed) !== entry.calories
+    ) {
+      updateDiaryMutation.mutate({
+        id: entry.id,
+        data: { calories: Math.round(parsed) },
+      });
+    }
   };
 
   // -----------------------------------------------------------------------
@@ -369,11 +432,20 @@ export default function Nutrition() {
                         <Badge variant="outline" className="border-yellow-500/20 text-yellow-400">{meal.carbs}{t("nutrition.carbsSuffix")}</Badge>
                       )}
                     </div>
-                    <p className="text-muted-foreground text-sm line-clamp-2 mb-6 flex-1">
-                      {meal.description ?? ""}
-                    </p>
+                    {/* Description renders only when present so the card
+                        visibly differentiates meals with a note from
+                        bare ones. flex-1 lives on the trailing button
+                        wrapper instead so the card height still expands
+                        evenly when the description is empty. */}
+                    {meal.description && meal.description.trim() !== "" ? (
+                      <p className="text-muted-foreground text-sm line-clamp-3 mb-6 flex-1">
+                        {meal.description}
+                      </p>
+                    ) : (
+                      <div className="flex-1" aria-hidden="true" />
+                    )}
                     <Button
-                      onClick={() => addDiaryMutation.mutate({ data: { mealId: meal.id, date: today, mealType: meal.mealType } })}
+                      onClick={() => addDiaryMutation.mutate({ data: { mealId: meal.id, date: selectedDate, mealType: meal.mealType } })}
                       disabled={addDiaryMutation.isPending}
                       className="w-full font-bold bg-secondary hover:bg-primary hover:text-primary-foreground text-secondary-foreground transition-colors"
                     >
@@ -389,10 +461,64 @@ export default function Nutrition() {
         {/* Right Col: Food Diary */}
         <div className="xl:col-span-1">
           <div className="bg-card rounded-3xl border border-border dark:border-white/5 p-6 sticky top-28">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-2xl font-bold flex items-center gap-2">
-                <Calendar className="w-6 h-6 text-primary" /> {t("nutrition.todaysDiary")}
-              </h3>
+            <div className="flex items-start justify-between gap-3 mb-6">
+              <div className="min-w-0">
+                <h3 className="text-2xl font-bold flex items-center gap-2">
+                  {/* Calendar icon now triggers the date picker popover.
+                      Tab-focusable, full keyboard support via the
+                      shadcn Calendar primitive. */}
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("nutrition.changeDateAria")}
+                        className="p-1 -m-1 rounded-md text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <Calendar className="w-6 h-6" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="p-0 w-auto bg-card border-border dark:border-white/10"
+                    >
+                      <CalendarPicker
+                        mode="single"
+                        selected={selectedDateObj}
+                        onSelect={(d) => {
+                          if (!d) return;
+                          setSelectedDate(format(d, "yyyy-MM-dd"));
+                          setDatePickerOpen(false);
+                        }}
+                        // Block future dates — backfilling forgotten
+                        // meals is the use case; logging future meals
+                        // would muddy the progress chart.
+                        disabled={(d) => d > new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <span>
+                    {isSelectedToday
+                      ? t("nutrition.todaysDiary")
+                      : t("nutrition.diaryFor", {
+                          date: format(selectedDateObj, "MMM d, yyyy", {
+                            locale: lang === "ar" ? ar : enUS,
+                          }),
+                        })}
+                  </span>
+                </h3>
+                {!isSelectedToday && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedDate(format(new Date(), "yyyy-MM-dd"))
+                    }
+                    className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors mt-1"
+                  >
+                    {t("nutrition.jumpToToday")}
+                  </button>
+                )}
+              </div>
               {/* Add Meal — opens the shared MealFormDialog in create mode.
                   Lives here (next to the diary heading) per the feature
                   spec. Using size="sm" so it reads as a secondary action
@@ -401,7 +527,7 @@ export default function Nutrition() {
               <Button
                 size="sm"
                 onClick={openCreate}
-                className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow font-bold"
+                className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 neon-glow font-bold shrink-0"
               >
                 <Plus className="w-4 h-4 mr-1 rtl:mr-0 rtl:ml-1" /> {t("nutrition.addMeal")}
               </Button>
@@ -436,9 +562,13 @@ export default function Nutrition() {
                   const displayType = MEAL_TYPE_T_KEY[entry.mealType]
                     ? t(MEAL_TYPE_T_KEY[entry.mealType])
                     : entry.mealType;
-                  // Disable both controls only while THIS entry's
-                  // update is in flight, so clicking pencil on one row
-                  // doesn't freeze controls on every other row.
+                  // Inline edits only — no modal. The pencil flips the
+                  // meal-type dropdown; tapping the calories number
+                  // turns it into an input. Both fields commit through
+                  // the diary endpoint, which is owner-scoped on the
+                  // entry, so it works regardless of whether the
+                  // underlying meal is shared or owned (no 404).
+                  const isEditingCalories = editingCaloriesId === entry.id;
                   const isUpdatingThisEntry =
                     updateDiaryMutation.isPending &&
                     updateDiaryMutation.variables?.id === entry.id;
@@ -449,12 +579,42 @@ export default function Nutrition() {
                         <p className="text-sm text-muted-foreground uppercase tracking-wider mt-1">{displayType}</p>
                       </div>
                       <div className="flex items-center gap-2 ml-3 rtl:ml-0 rtl:mr-3 shrink-0">
-                        <div className="text-right font-black text-lg text-primary tabular-nums">
-                          {entry.calories}
-                        </div>
-                        {/* Per-row actions. Ghost-style icon buttons so
-                            they read as secondary controls and don't
-                            fight the calorie number visually. */}
+                        {/* Calories — click-to-edit. Renders as a
+                            button by default (keyboard-focusable +
+                            announces "edit calories"); on click it
+                            swaps to a number input that commits on
+                            Enter or blur. No modal, no extra
+                            confirmation step. */}
+                        {isEditingCalories ? (
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="numeric"
+                            autoFocus
+                            value={caloriesDraft}
+                            onChange={(e) => setCaloriesDraft(e.target.value)}
+                            onBlur={() => commitCalories(entry)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.currentTarget.blur(); // triggers commit
+                              }
+                            }}
+                            aria-label={t("nutrition.editCaloriesAria", { title: displayTitle })}
+                            className="w-20 text-right font-black text-lg text-primary tabular-nums bg-card border border-primary/40 rounded-md px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startEditCalories(entry)}
+                            aria-label={t("nutrition.editCaloriesAria", { title: displayTitle })}
+                            className="text-right font-black text-lg text-primary tabular-nums px-2 py-0.5 rounded-md hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-text"
+                          >
+                            {entry.calories}
+                          </button>
+                        )}
+                        {/* Per-row actions. Pencil = meal-type
+                            dropdown; trash = remove entry. */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button

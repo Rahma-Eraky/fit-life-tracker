@@ -129,6 +129,7 @@ export interface NewMeal {
   protein?: number | null;
   carbs?: number | null;
   imageUrl?: string | null;
+  description?: string | null;
 }
 
 export type UpdateMealMealType = typeof UpdateMealMealType[keyof typeof UpdateMealMealType];
@@ -148,6 +149,7 @@ export interface UpdateMeal {
   protein?: number | null;
   carbs?: number | null;
   imageUrl?: string | null;
+  description?: string | null;
 }
 
 export interface DiaryEntry {
@@ -176,7 +178,8 @@ export const UpdateDiaryEntryMealType = {
 } as const;
 
 export interface UpdateDiaryEntry {
-  mealType: UpdateDiaryEntryMealType;
+  mealType?: UpdateDiaryEntryMealType;
+  calories?: number;
 }
 
 export interface Article {
